@@ -18,6 +18,11 @@
 .env.test.local
 .env.production.local
 
+# Answers to the questions
+Answers.jsx
+# Shell for switching back and forth betweens Q and As
+Shell.jsx
+
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
