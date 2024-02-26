@@ -1,6 +1,13 @@
-import React, { useState } from "react";
+/*
+I wanted to show I could work within the constraints of the original function signatures
+i also commented out the lines of code that shows the basic functionality without the api calls to django rest api, in addition, i tried not to change 
+the uncommented too much so I can easily comment anything out and show the basic functionality
+*/
+
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 // initial task list
-import { taskList } from "./tasks";
+// import { taskList } from "./tasks";
 // material components
 import { DataGrid } from "@mui/x-data-grid";
 import { Button, Checkbox, Dialog } from "@mui/material";
@@ -8,7 +15,22 @@ import { Button, Checkbox, Dialog } from "@mui/material";
 export const ToDoList = () => {
 	// initial values and functions for react state variables
 	// task list
-	const [tasks, setTasks] = useState(taskList);
+	const [tasks, setTasks] = useState([]);
+	const [errors, setErrors] = useState("");
+
+	const fetchTask = async () =>{
+		try{
+			const res = await axios.get("http://127.0.0.1:8000/todos")
+			setTasks(res.data)
+		} catch(err){
+			setErrors(err)
+		}
+	}
+	useEffect(() => {
+		fetchTask();
+	}, [])
+
+
 	// text of the input field in the dialog
 	const [description, setDescription] = useState("");
 	// selected item/s
@@ -71,8 +93,8 @@ export const ToDoList = () => {
 	 * INSTRUCTIONS: use the js filter method to set the selection as an array of tasks
 	 */
 	const handleSelection = (ids) => {
-		// your code here
-	};
+		setSelection(tasks.filter(task => ids.includes(task.id)))
+	}
 
 	/**
 	 * @description function for submitting from the dialog
@@ -80,7 +102,12 @@ export const ToDoList = () => {
 	 * clicking the submit button
 	 */
 	const handleSubmit = () => {
-		// your code here
+		if(mode === 'ADD'){
+			createTask();
+		}else {
+			updateTask();
+			fetchTask();
+		}
 	};
 
 	/**
@@ -88,8 +115,21 @@ export const ToDoList = () => {
 	 * INSTRUCTIONS: use the description state variable to create a new task object
 	 * and add it with the setTasks hook
 	 */
-	const createTask = () => {
-		// your code here
+	const createTask = async () => {
+		const newTask = {
+			description: description,
+			complete: false
+		}
+		try {
+			const res = await axios.post("http://127.0.0.1:8000/todos", newTask)
+			const addedTasks = res.data;
+			setTasks([...tasks, addedTasks]);
+			setDescription('');
+			closeDialog();
+		}catch(err) {
+			setErrors(err);
+		}
+
 	};
 
 	/**
@@ -97,8 +137,29 @@ export const ToDoList = () => {
 	 * INSTRUCTIONS: use the selection state variable and setTasks hook
 	 * with a js map to create a new task array
 	 */
-	const updateTask = () => {
-		// your code here
+	const updateTask = async() => {
+		console.log('inside upodate')
+		try{
+			const updatedTasks = tasks.map(task => {
+				if(selection.includes(task)) {
+					for (const task of selection) {
+						axios.patch("http://127.0.0.1:8000/todos/" +task.id,  {...task, description: description} );
+						console.log(`Task with ID ${task.id} updated successfully.`);
+				}
+					return {...task, description: description}
+				}
+				return task
+			})
+			fetchTask()
+			setSelection([])
+			// setTasks(updatedTasks)
+			setDescription('')
+			closeDialog()
+		}catch(err){
+			setErrors(err)
+		}
+		
+
 	};
 
 	/**
@@ -106,8 +167,28 @@ export const ToDoList = () => {
 	 * INSTRUCTIONS: use the selection state variable and setTasks hook
 	 * with a js filter to create a new task array
 	 */
-	const removeTask = () => {
-		// your code here
+	const removeTask = async() => {
+		try {
+			// Make a DELETE request for each selected task
+			// currently the api doesnt not handle multiple delete of tasks heres what it would look like if the api did handle multiple
+			/* By using Promise.all(), we can execute multiple asynchronous operations concurrently, 
+			which can improve the efficiency of the process, especially if there are many tasks to delete.
+			*/
+	   			// await Promise.all(selection.map(async task => {
+				// await axios.delete("http://127.0.0.1:8000/todos/" +task.id);
+				// console.log(`Task with ID ${task.id} deleted successfully.`);
+			for (const task of selection) {
+				await axios.delete("http://127.0.0.1:8000/todos/" +task.id);
+				console.log(`Task with ID ${task.id} deleted successfully.`);
+			}
+			fetchTask();
+			setSelection([]);
+		} catch (error) {
+			setErrors(error);
+		}
+
+		// const updatedTasks = tasks.filter(task => !selection.includes(task));
+		// setTasks(updatedTasks)
 	};
 
 	/**
@@ -116,7 +197,18 @@ export const ToDoList = () => {
 	 * INSTRUCTIONS: use the setTasks hook with a js map to create a new task array
 	 */
 	const completeTask = (id) => {
-		// your code here
+		setTasks(tasks.map(task => {
+			if (task.id === id) {
+				//I would remove this line for basic functionality 
+				axios.patch("http://127.0.0.1:8000/todos/" +task.id,  {...task, complete: !task.complete} );
+				console.log(`Task with ID ${task.id} updated successfully.`);
+				// Return a new task object with the 'status' property updated to 'complete'
+				return {...task, complete: !task.complete};
+			}
+			return task; // Return the task unchanged if it's not the one to mark as complete
+		}));
+		
+		// Update the tasks state variable with the updatedTasks array
 	};
 
 	// the Data grid columns - the renderCell will replace a cell's text with a React component - in this case a checkbox
@@ -165,6 +257,7 @@ export const ToDoList = () => {
 					</Button>
 					<Button onClick={removeTask}>Remove</Button>
 				</div>
+				
 			</div>
 		</div>
 	);
